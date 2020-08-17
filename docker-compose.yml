@@ -1,0 +1,8 @@
+version: '3'
+services: 
+  moneyflow:
+    build:
+      context:  .
+      dockerfile: Dockerfile
+    image: hadrianl/moneyflow
+    restart: "on-failure"
