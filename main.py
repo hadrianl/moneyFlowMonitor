@@ -6,6 +6,7 @@ import time
 from rich.console import Console
 from rich.table import Table
 from rich.live_render import LiveRender
+import sys
 
 his_flow_url = 'http://push2his.eastmoney.com/api/qt/kamt.kline/get?fields1=f1,f3,f5&fields2=f51,f52&klt=101&lmt=300'
 
@@ -48,7 +49,22 @@ def get_realtime_money_flow(realtime_flow_url):
 
     return result_df
 
+def notification2dingtalk(web_hook_url, msg):
+    if not web_hook_url:
+        return False
+
+    params = {"msgtype": "text","text": {"content": msg}}
+    ret = requests.post(web_hook_url, json=params)
+
+    return ret.ok and ret.json()['errmsg'] == 'ok'
+
 if __name__ == "__main__":
+    if len(sys.argv) >= 1:
+        nofitication_web_hook_url = sys.argv[1]
+    else:
+        nofitication_web_hook_url = None
+
+
     console = Console()
     lr = LiveRender(None)
     stat_table = Table(title='历史北向资金净流入统计', show_header=True, header_style="bold blue")
@@ -63,6 +79,8 @@ if __name__ == "__main__":
     statistics = calc_his_statistics(his_money_flow)
     for name, stats in statistics.items():
         stat_table.add_row(name, *map(str, stats))
+
+    notify_state = {k: False for k in statistics}
 
     console.print(stat_table)
 
@@ -88,12 +106,17 @@ if __name__ == "__main__":
         if not latest_data.empty:
             last = latest_data.iloc[-1]
 
-            mul_stds = []
+            mul_stds = {}
             for n, v in last.items():
                 mul_std = (v - statistics[n][0]) / statistics[n][1]
-                mul_stds.append(f'[bold red]{mul_std:.3f}[/bold red]' if abs(mul_std) > 1.5 else f'[bold magenta]{mul_std:.3f}[/bold magenta]')
+                if abs(mul_std) > 1.5:
+                    mul_stds[n] = f'[bold red]{mul_std:.3f}[/bold red]'
+                    notify_state[n] = notify_state[n] or notification2dingtalk(nofitication_web_hook_url, f'{n}净流入异常')
+                else:
+                    mul_stds[n] = f'[bold magenta]{mul_std:.3f}[/bold magenta]'
+                    notify_state[n] = False
 
-            realtime_flow_table.add_row('STD', *mul_stds)
+            realtime_flow_table.add_row('STD', *mul_stds.values())
             
         lr.set_renderable(realtime_flow_table)
         console.print(pc)

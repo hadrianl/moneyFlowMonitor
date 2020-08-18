@@ -4,11 +4,13 @@ RUN sed -i 's/dl-cdn.alpinelinux.org/mirrors.aliyun.com/g' /etc/apk/repositories
 
 WORKDIR /app
 
-COPY . .
+COPY requirements.txt .
 
 RUN apk add --no-cache build-base && \
     pip install --no-cache-dir -r requirements.txt -i https://pypi.douban.com/simple && \
     apk del build-base && \
     apk add --no-cache libstdc++
 
-CMD python ./main.py
+COPY main.py .
+
+ENTRYPOINT [ "python", "./main.py" ]
