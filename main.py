@@ -60,9 +60,9 @@ def notification2dingtalk(web_hook_url, msg):
 
 if __name__ == "__main__":
     if len(sys.argv) >= 1:
-        nofitication_web_hook_url = sys.argv[1]
+        nofitication_web_hook_urls = sys.argv[1:]
     else:
-        nofitication_web_hook_url = None
+        nofitication_web_hook_urls = []
 
 
     console = Console()
@@ -80,7 +80,7 @@ if __name__ == "__main__":
     for name, stats in statistics.items():
         stat_table.add_row(name, *map(str, stats))
 
-    notify_state = {k: False for k in statistics}
+    notify_state = {k: {u: False for u in nofitication_web_hook_urls} for k in statistics}
 
     console.print(stat_table)
 
@@ -108,13 +108,17 @@ if __name__ == "__main__":
 
             mul_stds = {}
             for n, v in last.items():
-                mul_std = (v - statistics[n][0]) / statistics[n][1]
+                mean_net_flow = statistics[n][0]
+                std_net_flow = statistics[n][1]
+                mul_std = (v - mean_net_flow) / std_net_flow
                 if abs(mul_std) > 1.5:
                     mul_stds[n] = f'[bold red]{mul_std:.3f}[/bold red]'
-                    notify_state[n] = notify_state[n] or notification2dingtalk(nofitication_web_hook_url, f'{n}净流入异常')
+                    for u in notify_state[n]:
+                        notify_state[n][u] = notify_state[n][u] or notification2dingtalk(u, f'{n}净流入异常-MulStd:{mul_std:.3f} Mean:{mean_net_flow:.3f} Realtime:{v:.3f}')
                 else:
                     mul_stds[n] = f'[bold magenta]{mul_std:.3f}[/bold magenta]'
-                    notify_state[n] = False
+                    for u in notify_state[n]:
+                        notify_state[n][u] = False
 
             realtime_flow_table.add_row('STD', *mul_stds.values())
             
